@@ -62,3 +62,4 @@ export function useStats(): UseStatsReturn {
     refetch: fetchStats,
   };
 }
+

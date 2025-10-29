@@ -201,8 +201,3 @@ Prediction markets are platforms where users can bet on the outcome of future ev
 **Novig**: Sports-focused predictions
 **SXBet**: Sports betting integration
 
-### Documentation Process
-- For each significant change:
-  - Update `CHANGELOG.md` with a short, dated entry.
-  - Sync this README's sections (What's Implemented, Routes, Current Behavior, Next Steps) as needed.
-  - Keep the realtime strategy note aligned with our plan (hybrid polling now; websockets later) [[memory:10467141]].

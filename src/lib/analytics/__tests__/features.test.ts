@@ -187,3 +187,4 @@ describe('Configuration Constants', () => {
     expect(FEATURE_CONFIG.CV_WINDOW_DAYS).toBe(60);
   });
 });
+

@@ -74,3 +74,4 @@ export function useTopPicksSimple(options: UseTopPicksSimpleOptions = {}): UseTo
     refetch: fetchPicks,
   };
 }
+
