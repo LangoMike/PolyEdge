@@ -80,7 +80,8 @@ export class PolyRouterClient {
   async getMarkets(
     platform?: Platform,
     limit: number = 50,
-    offset: number = 0
+    offset: number = 0,
+    status?: string
   ): Promise<PolyRouterResponse<PolyRouterMarket>> {
     const params: Record<string, string | number> = {
       limit,
@@ -91,10 +92,18 @@ export class PolyRouterClient {
       params.platform = platform;
     }
 
-    return this.makeRequest<PolyRouterResponse<PolyRouterMarket>>(
-      '/markets-v2',
-      params
-    );
+    if (status) {
+      params.status = status;
+    }
+
+    const response = await this.makeRequest<any>('/markets-v2', params);
+    
+    // Transform the response to match our expected format
+    return {
+      data: response.markets || [],
+      pagination: response.pagination || { total: 0, limit, offset, has_more: false },
+      meta: response.meta || {}
+    };
   }
 
   // Get market details by ID

@@ -1,6 +1,7 @@
 'use client';
 
 import useSWR from 'swr';
+import { usePolling } from './usePolling';
 import { Market, FilterOptions, PaginationOptions } from '@/types';
 
 interface UseMarketsOptions {
@@ -17,6 +18,7 @@ interface UseMarketsReturn {
   hasMore: boolean;
   loadMore: () => void;
   totalCount: number;
+  isPolling: boolean;
 }
 
 // Fetcher function for SWR
@@ -62,9 +64,20 @@ export function useMarkets(options: UseMarketsOptions = {}): UseMarketsReturn {
     url,
     fetcher,
     {
-      refreshInterval,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
+    }
+  );
+
+  // Use our smart polling hook
+  const { isPolling } = usePolling(
+    () => mutate(),
+    {
+      interval: refreshInterval,
+      enabled: true,
+      onError: (err) => {
+        console.error('Markets polling error:', err);
+      },
     }
   );
 
@@ -86,6 +99,7 @@ export function useMarkets(options: UseMarketsOptions = {}): UseMarketsReturn {
     hasMore: data?.pagination?.hasMore || false,
     loadMore,
     totalCount: data?.pagination?.total || 0,
+    isPolling,
   };
 }
 

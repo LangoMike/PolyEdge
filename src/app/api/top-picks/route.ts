@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { apiCache } from '@/lib/cache/lru';
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
       .from('top_picks')
       .select(`
         *,
-        market:markets (*)
+        market:markets (*, outcomes (*))
       `)
       .gte('expires_at', new Date().toISOString())
       .order('value_score', { ascending: false })
@@ -30,6 +31,19 @@ export async function GET(request: NextRequest) {
       query = query.eq('market.platform', platform);
     }
 
+    // Cache key based on query
+    const cacheKey = `top-picks:${searchParams.toString()}`;
+    const cached = apiCache.get(cacheKey);
+    if (cached) {
+      return new NextResponse(JSON.stringify(cached), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=15, s-maxage=15, stale-while-revalidate=60',
+        },
+      });
+    }
+
     // Execute query
     const { data: picks, error } = await query;
 
@@ -41,9 +55,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({
+    const payload = {
       success: true,
       data: picks || [],
+    };
+
+    apiCache.set(cacheKey, payload, 15_000);
+
+    return new NextResponse(JSON.stringify(payload), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=15, s-maxage=15, stale-while-revalidate=60',
+      },
     });
   } catch (error) {
     console.error('Top picks API error:', error);

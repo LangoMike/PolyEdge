@@ -29,6 +29,7 @@ Signals: ${input.valueSignals.filter(Boolean).join("; ")}`;
 		system,
 		prompt: user,
 		maxTokens: opts?.maxTokens ?? 160,
+		maxRetries: 0,
 		temperature: 0.4,
 	});
 

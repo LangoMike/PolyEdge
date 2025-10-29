@@ -30,9 +30,15 @@ export async function POST(req: NextRequest) {
 			valueSignals: body.valueSignals,
 		}, { provider: body.provider });
 
-		return NextResponse.json({ success: true, explanation });
+    return NextResponse.json({ success: true, explanation });
 	} catch (err) {
-		return NextResponse.json({ success: false, error: "Server error" }, { status: 500 });
+    // Log and propagate a meaningful error back to the client
+    // eslint-disable-next-line no-console
+    console.error("/api/llm/explain-pick error:", err);
+    const message = err instanceof Error ? err.message : "Server error";
+    const isQuotaOrRate = /quota|rate|limit/i.test(message);
+    const status = isQuotaOrRate ? 429 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
 	}
 }
 

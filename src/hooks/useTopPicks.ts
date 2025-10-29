@@ -1,6 +1,7 @@
 'use client';
 
 import useSWR from 'swr';
+import { usePolling } from './usePolling';
 import { TopPick } from '@/types';
 
 interface UseTopPicksOptions {
@@ -15,6 +16,7 @@ interface UseTopPicksReturn {
   loading: boolean;
   error: string | null;
   refetch: () => void;
+  isPolling: boolean;
 }
 
 // Fetcher function for SWR
@@ -51,9 +53,20 @@ export function useTopPicks(options: UseTopPicksOptions = {}): UseTopPicksReturn
     url,
     fetcher,
     {
-      refreshInterval,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
+    }
+  );
+
+  // Use our smart polling hook
+  const { isPolling } = usePolling(
+    () => mutate(),
+    {
+      interval: refreshInterval,
+      enabled: true,
+      onError: (err) => {
+        console.error('Top picks polling error:', err);
+      },
     }
   );
 
@@ -66,6 +79,7 @@ export function useTopPicks(options: UseTopPicksOptions = {}): UseTopPicksReturn
     loading: isLoading,
     error: error?.message || null,
     refetch,
+    isPolling,
   };
 }
 

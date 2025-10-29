@@ -16,10 +16,18 @@ import {
   DollarSign,
   Eye,
   Star,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { useTopPicks } from "@/hooks/useTopPicks";
 import { useMarkets } from "@/hooks/useMarkets";
 import { MarketCard } from "@/components/MarketCard";
+import { MobileNav } from "@/components/MobileNav";
+import { SwipeableCarousel } from "@/components/SwipeableCarousel";
+import { CollapsibleFilters } from "@/components/CollapsibleFilters";
+import { TopPickCard } from "@/components/TopPickCard";
+import type { TopPick } from "@/types";
+import Link from "next/link";
 
 // Mock data for stats - will be replaced with real data
 const mockStats = {
@@ -30,49 +38,177 @@ const mockStats = {
 };
 
 export function Dashboard() {
-  const { picks: topPicks, loading: picksLoading } = useTopPicks({ limit: 6 });
-  const { markets: recentMarkets, loading: marketsLoading } = useMarkets({
+  const {
+    picks: topPicks,
+    loading: picksLoading,
+    isPolling: picksPolling,
+  } = useTopPicks({ limit: 6 });
+  const {
+    markets: recentMarkets,
+    loading: marketsLoading,
+    isPolling: marketsPolling,
+  } = useMarkets({
     pagination: { page: 1, limit: 6 },
   });
 
+  const isPolling = picksPolling || marketsPolling;
+
+  // Fallback: build demo picks from recent markets if no top picks yet
+  const displayPicks: TopPick[] =
+    topPicks && topPicks.length > 0
+      ? topPicks
+      : recentMarkets && recentMarkets.length > 0
+      ? recentMarkets.slice(0, 6).map(
+          (m) =>
+            ({
+              id: `demo-${m.id}`,
+              market_id: m.id,
+              recommendation: "buy" as const,
+              confidence_score: 72,
+              reasoning:
+                "Strong momentum and healthy liquidity support this direction.",
+              value_score: 68,
+              created_at: new Date(),
+              expires_at: undefined,
+              market: m,
+            } as TopPick)
+        )
+      : [
+          // Static demo data when no markets are available
+          {
+            id: "demo-1",
+            market_id: "demo-1",
+            recommendation: "buy" as const,
+            confidence_score: 85,
+            reasoning:
+              "High confidence based on recent market trends and volume analysis.",
+            value_score: 78,
+            created_at: new Date(),
+            expires_at: undefined,
+            market: {
+              id: "demo-1",
+              market_id: "demo-1",
+              platform: "polymarket" as const,
+              title: "Will Bitcoin reach $100k by end of 2024?",
+              description: "Bitcoin price prediction for end of year",
+              category: "crypto",
+              status: "open" as const,
+              volume_24h: 2500000,
+              liquidity: 1800000,
+              created_at: new Date(),
+              updated_at: new Date(),
+            },
+          },
+          {
+            id: "demo-2",
+            market_id: "demo-2",
+            recommendation: "sell" as const,
+            confidence_score: 72,
+            reasoning:
+              "Market sentiment suggests downward pressure in the short term.",
+            value_score: 65,
+            created_at: new Date(),
+            expires_at: undefined,
+            market: {
+              id: "demo-2",
+              market_id: "demo-2",
+              platform: "kalshi" as const,
+              title: "Will the Fed cut rates in Q1 2025?",
+              description: "Federal Reserve interest rate prediction",
+              category: "economics",
+              status: "open" as const,
+              volume_24h: 1800000,
+              liquidity: 1200000,
+              created_at: new Date(),
+              updated_at: new Date(),
+            },
+          },
+          {
+            id: "demo-3",
+            market_id: "demo-3",
+            recommendation: "buy" as const,
+            confidence_score: 68,
+            reasoning: "Technical indicators show bullish momentum building.",
+            value_score: 71,
+            created_at: new Date(),
+            expires_at: undefined,
+            market: {
+              id: "demo-3",
+              market_id: "demo-3",
+              platform: "manifold" as const,
+              title: "Will AI achieve AGI by 2030?",
+              description:
+                "Artificial General Intelligence timeline prediction",
+              category: "tech",
+              status: "open" as const,
+              volume_24h: 950000,
+              liquidity: 750000,
+              created_at: new Date(),
+              updated_at: new Date(),
+            },
+          },
+        ];
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
+      {/* Mobile Navigation */}
+      <MobileNav isPolling={isPolling} />
+
+      {/* Desktop Header */}
+      <header className="hidden lg:block border-b bg-card/80 backdrop-blur-md">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <div className="h-8 w-8 rounded bg-primary"></div>
+              <div className="h-8 w-8 rounded accent-gradient"></div>
               <h1 className="text-2xl font-bold">PolyEdge</h1>
             </div>
             <nav className="flex items-center space-x-6">
-              <a
-                href="#"
-                className="text-sm font-medium text-muted-foreground hover:text-foreground"
+              <Link
+                href="/"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground border-b-2 border-transparent hover:border-primary transition"
               >
                 Prediction Markets
-              </a>
-              <a
-                href="#"
-                className="text-sm font-medium text-muted-foreground hover:text-foreground"
+              </Link>
+              <Link
+                href="/sports"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground border-b-2 border-transparent hover:border-primary transition"
               >
                 Sports
-              </a>
-              <a
-                href="#"
-                className="text-sm font-medium text-muted-foreground hover:text-foreground"
+              </Link>
+              <Link
+                href="/analytics"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground border-b-2 border-transparent hover:border-primary transition"
               >
                 Analytics
-              </a>
+              </Link>
             </nav>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-4 lg:py-8">
+        {/* Mobile Filters */}
+        <CollapsibleFilters
+          platforms={[
+            { id: "polymarket", label: "Polymarket", count: 450 },
+            { id: "kalshi", label: "Kalshi", count: 320 },
+            { id: "manifold", label: "Manifold", count: 280 },
+          ]}
+          categories={[
+            { id: "politics", label: "Politics", count: 148 },
+            { id: "economics", label: "Economics", count: 101 },
+            { id: "culture", label: "Culture", count: 247 },
+            { id: "sports", label: "Sports", count: 64 },
+          ]}
+          statuses={[
+            { id: "open", label: "Open", count: 1200 },
+            { id: "closed", label: "Closed", count: 47 },
+          ]}
+        />
+
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 mb-6 lg:mb-8">
+          <Card className="card-gradient-border hover-lift">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 Total Markets
@@ -89,7 +225,7 @@ export function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="card-gradient-border hover-lift">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">24h Volume</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -104,7 +240,7 @@ export function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="card-gradient-border hover-lift">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Top Movers</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -117,7 +253,7 @@ export function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="card-gradient-border hover-lift">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 Active Picks
@@ -134,14 +270,26 @@ export function Dashboard() {
         </div>
 
         {/* Top Picks Section */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-3xl font-bold">Top Picks</h2>
-            <Badge variant="secondary">Updated 2 minutes ago</Badge>
+        <div className="mb-6 lg:mb-8">
+          <div className="flex items-center justify-between mb-4 lg:mb-6">
+            <h2 className="text-2xl lg:text-3xl font-bold">Top Picks</h2>
+            <div className="hidden lg:flex items-center space-x-2">
+              <div className="flex items-center space-x-1">
+                {picksPolling ? (
+                  <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[var(--success)] live-pulse" />
+                ) : (
+                  <WifiOff className="h-4 w-4 text-gray-400" />
+                )}
+                <span className="text-sm text-muted-foreground">
+                  {picksPolling ? "Live" : "Paused"}
+                </span>
+              </div>
+              <Badge variant="secondary">Updated 2 minutes ago</Badge>
+            </div>
           </div>
 
           {picksLoading ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
               {Array.from({ length: 6 }).map((_, i) => (
                 <Card key={i}>
                   <CardHeader>
@@ -155,84 +303,53 @@ export function Dashboard() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {topPicks.map((pick) => (
-                <Card
-                  key={pick.id}
-                  className="hover:shadow-lg transition-shadow"
+            <>
+              {/* Mobile: Swipeable Carousel */}
+              <div className="lg:hidden">
+                <SwipeableCarousel
+                  itemsPerView={{ mobile: 1, tablet: 1, desktop: 3 }}
+                  showArrows={false}
+                  showDots={true}
                 >
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <CardTitle className="text-lg">
-                          {pick.market?.title}
-                        </CardTitle>
-                        <CardDescription className="flex items-center space-x-2">
-                          <Badge variant="outline">
-                            {pick.market?.platform}
-                          </Badge>
-                          <Badge
-                            variant={
-                              pick.recommendation === "buy"
-                                ? "default"
-                                : pick.recommendation === "sell"
-                                ? "destructive"
-                                : "secondary"
-                            }
-                          >
-                            {pick.recommendation}
-                          </Badge>
-                        </CardDescription>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold">
-                          {pick.confidence_score}%
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          Confidence
-                        </div>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex justify-between text-sm">
-                        <span>Value Score</span>
-                        <span className="font-medium">
-                          {pick.value_score}/100
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {pick.reasoning}
-                      </p>
-                      <div className="flex items-center justify-between pt-2">
-                        <button className="text-sm text-primary hover:underline">
-                          View Details
-                        </button>
-                        <button className="flex items-center space-x-1 text-sm text-muted-foreground hover:text-foreground">
-                          <Eye className="h-3 w-3" />
-                          <span>Watch</span>
-                        </button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                  {displayPicks.map((pick) => (
+                    <TopPickCard key={pick.id} pick={pick} />
+                  ))}
+                </SwipeableCarousel>
+              </div>
+
+              {/* Desktop: Grid Layout */}
+              <div className="hidden lg:grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                {displayPicks.map((pick) => (
+                  <TopPickCard key={pick.id} pick={pick} />
+                ))}
+              </div>
+            </>
           )}
         </div>
 
         {/* Recent Markets */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-3xl font-bold">Recent Markets</h2>
-            <button className="text-sm text-primary hover:underline">
-              View All
-            </button>
+        <div className="mb-6 lg:mb-8">
+          <div className="flex items-center justify-between mb-4 lg:mb-6">
+            <h2 className="text-2xl lg:text-3xl font-bold">Recent Markets</h2>
+            <div className="hidden lg:flex items-center space-x-4">
+              <div className="flex items-center space-x-1">
+                {marketsPolling ? (
+                  <Wifi className="h-4 w-4 text-green-500" />
+                ) : (
+                  <WifiOff className="h-4 w-4 text-gray-400" />
+                )}
+                <span className="text-sm text-muted-foreground">
+                  {marketsPolling ? "Live" : "Paused"}
+                </span>
+              </div>
+              <button className="text-sm text-primary hover:underline">
+                View All
+              </button>
+            </div>
           </div>
 
           {marketsLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
               {Array.from({ length: 6 }).map((_, i) => (
                 <Card key={i}>
                   <CardHeader>
@@ -246,32 +363,62 @@ export function Dashboard() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {recentMarkets.map((market) => (
-                <MarketCard
-                  key={market.id}
-                  market={market}
-                  outcomes={market.outcomes || []}
-                  showDetails={false}
-                />
-              ))}
-            </div>
+            <>
+              {/* Mobile: Swipeable Carousel */}
+              <div className="lg:hidden">
+                <SwipeableCarousel
+                  itemsPerView={{ mobile: 1, tablet: 2, desktop: 3 }}
+                  showArrows={false}
+                  showDots={true}
+                >
+                  {recentMarkets.map((market) => (
+                    <MarketCard
+                      key={market.id}
+                      market={market}
+                      outcomes={[]}
+                      showDetails={false}
+                    />
+                  ))}
+                </SwipeableCarousel>
+              </div>
+
+              {/* Desktop: Grid Layout */}
+              <div className="hidden lg:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {recentMarkets.map((market) => (
+                  <MarketCard
+                    key={market.id}
+                    market={market}
+                    outcomes={[]}
+                    showDetails={false}
+                  />
+                ))}
+              </div>
+            </>
           )}
         </div>
 
         {/* Market Categories */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold mb-6">Market Categories</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {["Politics", "Economics", "Culture", "Sports"].map((category) => (
+        <div className="mb-6 lg:mb-8">
+          <h2 className="text-xl lg:text-2xl font-bold mb-4 lg:mb-6">
+            Market Categories
+          </h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+            {[
+              { name: "Politics", count: 148 },
+              { name: "Economics", count: 101 },
+              { name: "Culture", count: 247 },
+              { name: "Sports", count: 64 },
+            ].map((category) => (
               <Card
-                key={category}
+                key={category.name}
                 className="hover:shadow-md transition-shadow cursor-pointer"
               >
-                <CardContent className="p-6 text-center">
-                  <h3 className="font-semibold text-lg">{category}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {Math.floor(Math.random() * 200) + 50} markets
+                <CardContent className="p-4 lg:p-6 text-center">
+                  <h3 className="font-semibold text-base lg:text-lg">
+                    {category.name}
+                  </h3>
+                  <p className="text-xs lg:text-sm text-muted-foreground mt-1">
+                    {category.count} markets
                   </p>
                 </CardContent>
               </Card>

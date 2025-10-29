@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
+import { apiCache } from '@/lib/cache/lru';
 import { FilterOptions, PaginationOptions } from '@/types';
 
 export async function GET(request: NextRequest) {
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100);
 
     // Build query
-    let query = supabase
+    let query = supabaseAdmin
       .from('markets')
       .select(`
         *,
@@ -52,6 +53,19 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit;
     query = query.range(offset, offset + limit - 1);
 
+    // Cache key based on full query string
+    const cacheKey = `markets:${searchParams.toString()}`;
+    const cached = apiCache.get(cacheKey);
+    if (cached) {
+      return new NextResponse(JSON.stringify(cached), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=10, s-maxage=10, stale-while-revalidate=30',
+        },
+      });
+    }
+
     // Execute query
     const { data: markets, error, count } = await query;
 
@@ -67,7 +81,7 @@ export async function GET(request: NextRequest) {
     const totalPages = Math.ceil((count || 0) / limit);
     const hasMore = page < totalPages;
 
-    return NextResponse.json({
+    const payload = {
       success: true,
       data: markets || [],
       pagination: {
@@ -76,6 +90,17 @@ export async function GET(request: NextRequest) {
         total: count || 0,
         totalPages,
         hasMore,
+      },
+    };
+
+    // Set cache (TTL 10s)
+    apiCache.set(cacheKey, payload, 10_000);
+
+    return new NextResponse(JSON.stringify(payload), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=10, s-maxage=10, stale-while-revalidate=30',
       },
     });
   } catch (error) {

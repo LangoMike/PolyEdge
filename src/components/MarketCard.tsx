@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Market, Outcome } from "@/types";
 import { useState } from "react";
+import Link from "next/link";
 
 interface MarketCardProps {
   market: Market;
@@ -93,7 +94,12 @@ export function MarketCard({
               )}
             </div>
             <CardTitle className="text-lg leading-tight line-clamp-2">
-              {market.title}
+              <Link
+                href={`/markets/${market.id}`}
+                className="hover:text-primary transition-colors"
+              >
+                {market.title}
+              </Link>
             </CardTitle>
             {market.description && showDetails && (
               <CardDescription className="line-clamp-2">

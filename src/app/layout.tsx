@@ -23,10 +23,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <div className="fixed inset-0 -z-10 bg-[#0F0F1A]">
+          <div className="pointer-events-none absolute inset-0 opacity-70" style={{
+            background:
+              "radial-gradient(60% 40% at 70% 10%, rgba(169,112,255,0.18) 0%, rgba(13,13,20,0) 60%), radial-gradient(40% 30% at 20% 80%, rgba(142,130,255,0.12) 0%, rgba(13,13,20,0) 70%)",
+          }} />
+        </div>
         {children}
       </body>
     </html>

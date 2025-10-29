@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import polyRouterClient from '@/lib/api/polyrouter-client';
+import { PolyRouterClient } from '@/lib/api/polyrouter-client';
 import { supabaseAdmin } from '@/lib/supabase';
 import { normalizeMarkets, normalizeOutcomes, validateMarketData } from '@/lib/data/normalizer';
 import { Platform } from '@/types';
@@ -10,6 +10,8 @@ const PLATFORMS: Platform[] = ['polymarket', 'kalshi', 'manifold', 'limitless', 
 export async function GET(request: NextRequest) {
   try {
     console.log('Starting market sync...');
+    
+    const polyRouterClient = new PolyRouterClient(process.env.POLYROUTER_API_KEY || '');
     
     const syncResults = {
       totalMarkets: 0,
@@ -24,8 +26,8 @@ export async function GET(request: NextRequest) {
       try {
         console.log(`Syncing ${platform}...`);
         
-        // Fetch markets from platform
-        const response = await polyRouterClient.getMarkets(platform, 100, 0);
+        // Fetch markets from platform (only open markets)
+        const response = await polyRouterClient.getMarkets(platform, 100, 0, 'open');
         
         if (!response.data || response.data.length === 0) {
           console.log(`No markets found for ${platform}`);

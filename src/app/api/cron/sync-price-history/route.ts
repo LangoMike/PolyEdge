@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import polyRouterClient from '@/lib/api/polyrouter-client';
+import { PolyRouterClient } from '@/lib/api/polyrouter-client';
 import { supabaseAdmin } from '@/lib/supabase';
 import { normalizePriceHistory } from '@/lib/data/normalizer';
 
 export async function GET(request: NextRequest) {
   try {
     console.log('Starting price history sync...');
+    
+    const polyRouterClient = new PolyRouterClient(process.env.POLYROUTER_API_KEY || '');
     
     // Get active markets from database
     const { data: markets, error: marketsError } = await supabaseAdmin
