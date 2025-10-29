@@ -1,0 +1,146 @@
+---
+alwaysApply: true
+description: Project Rule- PolyRouter AI Prediction Picker
+    0) Mission & Scope (authoritative)
+
+    Build an analytics + pick curator for prediction markets and sportsbooks via PolyRouter only (Polymarket, Kalshi, Manifold, Limitless, ProphetX, Novig, SX.bet).
+
+    No autobetting or order placement in v1. Show deep links to venues for the exact selection.
+
+    Surfaces ranked lists by Success Probability, Value/Edge, Trending/Popularity, and Confidence with short explainers.
+
+    1) Non-negotiable Constraints
+
+    Data/Execution- All market/price data from PolyRouter. Never scrape or call venues directly.
+
+    Compliance- Display a Responsible Gaming disclaimer and age-gate copy on first launch. No advice wording like “guaranteed.”
+
+    Privacy/Sec- Never print API keys. Use env vars only. Production MCP connections must be read-only to DB.
+
+    2) Tech Stack (preferred)
+
+    Frontend- Next.js 15 (RSC) + TypeScript + Tailwind + shadcn/ui.
+
+    Backend- FastAPI (Python 3.11+).
+
+    DB/Cache- Postgres 16 + TimescaleDB (time-series), Redis. Optional pgvector.
+
+    Pipelines- Prefect (ETL jobs), MLflow (experiments).
+
+    Models- scikit-learn + XGBoost/LightGBM + statsmodels.
+
+    Infra- Docker Compose (dev), Vercel (web), Fly.io/Render (API).
+
+    Observability- OpenTelemetry, Prometheus/Grafana (dev), Sentry (web/api).
+
+    3)Environment & Secrets (use .env*; never commit)
+
+    POLYROUTER_API_KEY=...
+
+    DATABASE_URL=postgres://... (least-privilege read user for prod)
+
+    REDIS_URL=redis://...
+
+    MLFLOW_TRACKING_URI=http://mlflow:5000
+
+    NEXT_PUBLIC_APP_ENV=dev|prod
+
+    4)PolyRouter Integration (required)
+
+    Use PolyRouter endpoints for-
+
+    Discovery- list games/markets
+
+    Markets v2- real-time prices across platforms
+
+    Price History v2- OHLC + timestamps for features and CLV
+
+    Preserve platform IDs + deep-link URL for each selection.
+
+    6) Database Schema (starter)
+    -- events/games
+    CREATE TABLE events(
+    event_id TEXT PRIMARY KEY,
+    league TEXT, start_time TIMESTAMPTZ, status TEXT, meta JSONB
+    );
+
+    -- markets & selections
+    CREATE TABLE markets(
+    market_id TEXT PRIMARY KEY,
+    event_id TEXT REFERENCES events(event_id),
+    platform TEXT, market_type TEXT, title TEXT, selections JSONB, meta JSONB
+    );
+
+    -- time-series prices (Timescale hypertable)
+    CREATE TABLE prices(
+    market_id TEXT, platform TEXT, selection TEXT,
+    price_numeric DOUBLE PRECISION, line_value DOUBLE PRECISION,
+    ts TIMESTAMPTZ NOT NULL
+    );
+    -- hypertable/pruning handled by Timescale
+
+    -- model outputs
+    CREATE TABLE predictions(
+    market_id TEXT, platform TEXT, selection TEXT,
+    p_win DOUBLE PRECISION, edge DOUBLE PRECISION,
+    popularity DOUBLE PRECISION, confidence TEXT,
+    clv_signal DOUBLE PRECISION,
+    model_version TEXT, ts TIMESTAMPTZ
+    );
+
+    -- evaluation
+    CREATE TABLE evaluations(
+    market_id TEXT, selection TEXT, outcome BOOLEAN,
+    brier DOUBLE PRECISION, logloss DOUBLE PRECISION, clv DOUBLE PRECISION, ts TIMESTAMPTZ
+    );
+
+    7) Models (what they do & how to use)
+
+    A) Game Outcome (binary classification)
+
+    Goal- P(win/cover/over) for each selection.
+
+    Algo- Logistic Regression → upgrade to XGBoost/LightGBM.
+
+    Features- team ratings (elo-like), rest/travel, weather (if applicable), recent form, consensus PolyRouter price, line-move velocity, time-to-start.
+
+    Output- raw probability → pass to Calibration (E).
+
+    B) Player Props (distribution → tail prob)
+
+    Goal- probability that stat exceeds/under book line.
+
+    Algo-
+
+    Counts- Poisson / Negative Binomial (with player/opponent effects).
+
+    Yardage- Gamma/Log-normal or GBM predicting mean/variance.
+
+    Output- P(over) and P(under) at each line.
+
+    C) Fair-Price & CLV Model (regression)
+
+    Goal- estimate fair price now; compute edge vs platform price and CLV signal.
+
+    Algo- Ridge/GBR on last-N drift, volatility, cross-venue divergence, minutes-to-start.
+
+    Output- edge, clv_signal.
+
+    D) Popularity Score (ranking feature)
+
+    Goal- proxy interest/trend without implying edge.
+
+    Inputs- trade count/volume where available, price magnitude of moves, cross-platform agreement.
+
+    Output- normalized popularity ∈ [0,1].
+
+    E) Calibration Layer (probability reliability)
+
+    Goal- align displayed probabilities with reality.
+
+    Algo- Platt scaling or Isotonic per market_type using holdout.
+
+    Output- calibrated P(win) and confidence bin (e.g., High/Med/Low).
+
+    Rule- LLMs are only for text parsing (market title clean-up, brief explanations). They must not produce final probabilities.
+---
