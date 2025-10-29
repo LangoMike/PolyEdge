@@ -1,6 +1,6 @@
 'use client';
 
-import useSWR from 'swr';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePolling } from './usePolling';
 import { TopPick } from '@/types';
 
@@ -19,15 +19,6 @@ interface UseTopPicksReturn {
   isPolling: boolean;
 }
 
-// Fetcher function for SWR
-const fetcher = async (url: string) => {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error('Failed to fetch top picks');
-  }
-  return response.json();
-};
-
 export function useTopPicks(options: UseTopPicksOptions = {}): UseTopPicksReturn {
   const { 
     limit = 10, 
@@ -36,31 +27,62 @@ export function useTopPicks(options: UseTopPicksOptions = {}): UseTopPicksReturn
     refreshInterval = 30000 
   } = options;
 
-  // Build query parameters
-  const searchParams = new URLSearchParams();
-  searchParams.append('limit', limit.toString());
+  const [picks, setPicks] = useState<TopPick[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
-  if (category) {
-    searchParams.append('category', category);
-  }
-  if (platform) {
-    searchParams.append('platform', platform);
-  }
+  // Use refs to store the latest values without causing re-renders
+  const optionsRef = useRef({ limit, category, platform });
+  optionsRef.current = { limit, category, platform };
 
-  const url = `/api/top-picks?${searchParams.toString()}`;
+  const fetchPicks = useCallback(async () => {
+    try {
+      setError(null);
+      
+      // Build query parameters using ref values
+      const searchParams = new URLSearchParams();
+      searchParams.append('limit', optionsRef.current.limit.toString());
+      
+      if (optionsRef.current.category) {
+        searchParams.append('category', optionsRef.current.category);
+      }
+      if (optionsRef.current.platform) {
+        searchParams.append('platform', optionsRef.current.platform);
+      }
 
-  const { data, error, mutate, isLoading } = useSWR(
-    url,
-    fetcher,
-    {
-      revalidateOnFocus: true,
-      revalidateOnReconnect: true,
+      const url = `/api/top-picks?${searchParams.toString()}`;
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch top picks: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        setPicks(data.data);
+      } else {
+        setPicks([]);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      setPicks([]);
     }
-  );
+  }, []); // Empty dependency array - function never changes
+
+  // Initial fetch
+  useEffect(() => {
+    const initialFetch = async () => {
+      setLoading(true);
+      await fetchPicks();
+      setLoading(false);
+    };
+    initialFetch();
+  }, [fetchPicks]);
 
   // Use our smart polling hook
   const { isPolling } = usePolling(
-    () => mutate(),
+    fetchPicks,
     {
       interval: refreshInterval,
       enabled: true,
@@ -70,15 +92,11 @@ export function useTopPicks(options: UseTopPicksOptions = {}): UseTopPicksReturn
     }
   );
 
-  const refetch = () => {
-    mutate();
-  };
-
   return {
-    picks: data?.data || [],
-    loading: isLoading,
-    error: error?.message || null,
-    refetch,
+    picks,
+    loading,
+    error,
+    refetch: fetchPicks,
     isPolling,
   };
 }

@@ -45,6 +45,31 @@ export function MarketCard({
   const currentPrice = primaryOutcome?.current_price || 0;
   const priceChange = primaryOutcome?.price_change_24h || 0;
 
+  // Get Yes/No prices for colored progress bar
+  const yesOutcome = outcomes.find(
+    (o) => o.outcome_label.toLowerCase() === "yes"
+  );
+  const noOutcome = outcomes.find(
+    (o) => o.outcome_label.toLowerCase() === "no"
+  );
+  const yesPrice = yesOutcome?.current_price || 0;
+  const noPrice = noOutcome?.current_price || 0;
+
+  // Calculate liquidity if not available (fallback for existing data)
+  const calculatedLiquidity =
+    market.liquidity > 0
+      ? market.liquidity
+      : (() => {
+          const volumeScore = Math.min(market.volume_24h / 10000, 1);
+          const priceSpread =
+            Math.max(yesPrice, noPrice) - Math.min(yesPrice, noPrice);
+          const spreadScore = Math.max(0, 1 - priceSpread * 10);
+          return Math.max(
+            0,
+            Math.min(1, volumeScore * 0.7 + spreadScore * 0.3)
+          );
+        })();
+
   // Get platform color
   const getPlatformColor = (platform: string) => {
     const colors: Record<string, string> = {
@@ -133,13 +158,13 @@ export function MarketCard({
 
       <CardContent className="space-y-4">
         {/* Price Display */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-muted-foreground">
               Current Price
             </span>
             <div className="text-right">
-              <div className="text-2xl font-bold">
+              <div className="text-3xl font-bold text-primary">
                 {(currentPrice * 100).toFixed(1)}%
               </div>
               <div
@@ -158,17 +183,39 @@ export function MarketCard({
                 ) : null}
                 {priceChange > 0 ? "+" : ""}
                 {(priceChange * 100).toFixed(1)}%
+                <span className="ml-1 text-xs text-muted-foreground">24h</span>
               </div>
             </div>
           </div>
 
-          {/* Price Progress Bar */}
+          {/* Price Progress Bar with Colors */}
           <div className="space-y-1">
-            <Progress value={currentPrice * 100} className="h-2" />
+            <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden">
+              {/* No (Red) portion */}
+              <div
+                className="absolute left-0 top-0 h-full bg-red-500 transition-all duration-300"
+                style={{ width: `${(1 - currentPrice) * 100}%` }}
+              />
+              {/* Yes (Green) portion */}
+              <div
+                className="absolute right-0 top-0 h-full bg-green-500 transition-all duration-300"
+                style={{ width: `${currentPrice * 100}%` }}
+              />
+              {/* Price indicator line */}
+              <div
+                className="absolute top-0 h-full w-0.5 bg-white shadow-sm"
+                style={{ left: `${currentPrice * 100}%` }}
+              />
+            </div>
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>0%</span>
-              <span>50%</span>
-              <span>100%</span>
+              <div className="flex items-center space-x-1">
+                <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                <span>No: {(noPrice * 100).toFixed(1)}%</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                <span>Yes: {(yesPrice * 100).toFixed(1)}%</span>
+              </div>
             </div>
           </div>
         </div>
@@ -185,9 +232,9 @@ export function MarketCard({
             <div className="space-y-1">
               <div className="text-xs text-muted-foreground">Liquidity</div>
               <div className="font-medium">
-                {market.liquidity > 0
-                  ? `${(market.liquidity * 100).toFixed(0)}%`
-                  : "N/A"}
+                {calculatedLiquidity > 0
+                  ? `${(calculatedLiquidity * 100).toFixed(0)}%`
+                  : "Low"}
               </div>
             </div>
           </div>
@@ -195,22 +242,44 @@ export function MarketCard({
 
         {/* All Outcomes */}
         {outcomes.length > 1 && showDetails && (
-          <div className="space-y-2 pt-2 border-t">
+          <div className="space-y-3 pt-3 border-t">
             <div className="text-sm font-medium text-muted-foreground">
               All Outcomes
             </div>
-            <div className="space-y-1">
-              {outcomes.map((outcome) => (
-                <div
-                  key={outcome.id}
-                  className="flex items-center justify-between text-sm"
-                >
-                  <span className="truncate">{outcome.outcome_label}</span>
-                  <span className="font-medium">
-                    {(outcome.current_price * 100).toFixed(1)}%
-                  </span>
-                </div>
-              ))}
+            <div className="space-y-2">
+              {outcomes.map((outcome) => {
+                const isYes = outcome.outcome_label.toLowerCase() === "yes";
+                const isNo = outcome.outcome_label.toLowerCase() === "no";
+                return (
+                  <div
+                    key={outcome.id}
+                    className="flex items-center justify-between p-2 bg-muted/30 rounded-lg"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          isYes
+                            ? "bg-green-500"
+                            : isNo
+                            ? "bg-red-500"
+                            : "bg-blue-500"
+                        }`}
+                      />
+                      <span className="text-sm font-medium truncate">
+                        {outcome.outcome_label}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm font-bold">
+                        {(outcome.current_price * 100).toFixed(1)}%
+                      </span>
+                      <div className="text-xs text-muted-foreground">
+                        {outcome.current_price.toFixed(4)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -239,10 +308,12 @@ export function MarketCard({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center space-x-2 pt-2">
-          <Button variant="outline" size="sm" className="flex-1">
-            <Eye className="h-4 w-4 mr-2" />
-            View Details
+        <div className="flex items-center space-x-2 pt-3">
+          <Button variant="outline" size="sm" className="flex-1" asChild>
+            <Link href={`/markets/${market.id}`}>
+              <Eye className="h-4 w-4 mr-2" />
+              View Details
+            </Link>
           </Button>
           <Button
             variant={isWatching ? "default" : "outline"}

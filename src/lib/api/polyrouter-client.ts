@@ -108,7 +108,18 @@ export class PolyRouterClient {
 
   // Get market details by ID
   async getMarketDetails(marketId: string): Promise<PolyRouterMarket> {
-    return this.makeRequest<PolyRouterMarket>(`/markets-v2/${marketId}`);
+    // Try to get a single market by ID
+    const response = await this.makeRequest<any>(`/markets-v2`, { 
+      market_id: marketId,
+      limit: 1 
+    });
+    
+    // Return the first market if found
+    if (response.markets && response.markets.length > 0) {
+      return response.markets[0];
+    }
+    
+    throw new Error(`Market ${marketId} not found`);
   }
 
   // Get price history for markets

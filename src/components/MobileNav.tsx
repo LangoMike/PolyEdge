@@ -13,6 +13,7 @@ import {
   Settings,
   Bell,
   Search,
+  Heart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ export function MobileNav({ isPolling = false }: MobileNavProps) {
 
   const navItems = [
     { href: "/", label: "Dashboard", icon: Home },
+    { href: "/for-you", label: "For You", icon: Heart },
     { href: "/", label: "Markets", icon: TrendingUp },
     { href: "/sports", label: "Sports", icon: TrendingUp },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },

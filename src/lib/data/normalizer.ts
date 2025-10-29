@@ -119,6 +119,24 @@ function normalizePrice(price: number, platform: Platform): number {
   return Math.max(0, Math.min(1, price)); // Clamp to 0-1 range
 }
 
+// Calculate liquidity score based on volume and price spread
+function calculateLiquidityScore(polyMarket: PolyRouterMarket): number {
+  const volume = polyMarket.volume_24h || 0;
+  
+  // Calculate price spread from current prices
+  const prices = Object.values(polyMarket.current_prices || {}).map((p: any) => p.price || 0);
+  const priceSpread = prices.length > 1 ? Math.max(...prices) - Math.min(...prices) : 0;
+  
+  // Volume score (0-1, max at $10k volume)
+  const volumeScore = Math.min(volume / 10000, 1);
+  
+  // Spread score (0-1, penalize high spreads)
+  const spreadScore = Math.max(0, 1 - priceSpread * 10);
+  
+  // Weighted combination (70% volume, 30% spread)
+  return Math.max(0, Math.min(1, volumeScore * 0.7 + spreadScore * 0.3));
+}
+
 // Normalize PolyRouter market to internal Market format
 export function normalizeMarket(polyMarket: PolyRouterMarket): Market {
   const platform = polyMarket.platform as Platform;
@@ -133,22 +151,33 @@ export function normalizeMarket(polyMarket: PolyRouterMarket): Market {
     status: normalizeStatus(polyMarket.status),
     end_date: undefined, // Would need to fetch from market details
     volume_24h: polyMarket.volume_24h || 0,
-    liquidity: 0, // Would need to calculate from order book data
+    liquidity: calculateLiquidityScore(polyMarket),
     created_at: new Date(),
     updated_at: new Date(),
   };
 }
 
 // Normalize PolyRouter market to internal Outcome format
-export function normalizeOutcomes(polyMarket: PolyRouterMarket, marketId: string): Outcome[] {
+export function normalizeOutcomes(polyMarket: any, marketId: string): Outcome[] {
   const outcomes: Outcome[] = [];
   
-  Object.entries(polyMarket.current_prices).forEach(([label, priceData]) => {
+  // Check if current_prices exists
+  if (!polyMarket.current_prices) {
+    console.warn(`[normalizeOutcomes] No current_prices found for market ${marketId}`);
+    return outcomes;
+  }
+  
+  Object.entries(polyMarket.current_prices).forEach(([label, priceData]: [string, any]) => {
+    if (!priceData || typeof priceData !== 'object') {
+      console.warn(`[normalizeOutcomes] Invalid price data for label ${label}:`, priceData);
+      return;
+    }
+    
     outcomes.push({
       id: '', // Will be set by database
       market_id: marketId,
       outcome_label: label,
-      current_price: normalizePrice(priceData.price, polyMarket.platform as Platform),
+      current_price: normalizePrice(priceData.price || 0, polyMarket.platform as Platform),
       previous_price: undefined, // Would need historical data
       price_change_24h: 0, // Would need to calculate
       updated_at: new Date(),
@@ -229,8 +258,10 @@ export function calculateMarketMetrics(market: Market, outcomes: Outcome[]): {
   // Calculate price spread (difference between highest and lowest prices)
   const priceSpread = Math.max(...prices) - Math.min(...prices);
   
-  // Simple liquidity score based on volume and price spread
-  const liquidityScore = totalVolume > 1000 ? 1 : totalVolume / 1000;
+  // Calculate liquidity score using the same logic as normalizeMarket
+  const volumeScore = Math.min(totalVolume / 10000, 1);
+  const spreadScore = Math.max(0, 1 - priceSpread * 10);
+  const liquidityScore = Math.max(0, Math.min(1, volumeScore * 0.7 + spreadScore * 0.3));
   
   return {
     totalVolume,

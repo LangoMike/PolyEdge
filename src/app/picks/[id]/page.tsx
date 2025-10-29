@@ -12,7 +12,8 @@ export default function PickDetailPage({ params }: { params: { id: string } }) {
   if (loading) return <div className="container mx-auto px-4 py-8">Loading...</div>;
   if (error || !pick) return <div className="container mx-auto px-4 py-8">Not found</div>;
 
-  const pickLabel = 'Yes/No'; // placeholder until analytics selects a side
+  const isYes = pick.recommendation === 'buy';
+  const pickLabel = isYes ? 'Yes' : pick.recommendation === 'sell' ? 'No' : 'Watch';
 
   return (
     <main className="container mx-auto px-4 py-8 space-y-6">

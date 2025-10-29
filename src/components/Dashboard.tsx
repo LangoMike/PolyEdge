@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import {
   TrendingUp,
   TrendingDown,
@@ -18,9 +19,11 @@ import {
   Star,
   Wifi,
   WifiOff,
+  Heart,
 } from "lucide-react";
 import { useTopPicks } from "@/hooks/useTopPicks";
 import { useMarkets } from "@/hooks/useMarkets";
+import { useStats } from "@/hooks/useStats";
 import { MarketCard } from "@/components/MarketCard";
 import { MobileNav } from "@/components/MobileNav";
 import { SwipeableCarousel } from "@/components/SwipeableCarousel";
@@ -28,14 +31,6 @@ import { CollapsibleFilters } from "@/components/CollapsibleFilters";
 import { TopPickCard } from "@/components/TopPickCard";
 import type { TopPick } from "@/types";
 import Link from "next/link";
-
-// Mock data for stats - will be replaced with real data
-const mockStats = {
-  totalMarkets: 1247,
-  totalVolume: 2847392,
-  topMovers: 23,
-  activePicks: 18,
-};
 
 export function Dashboard() {
   const {
@@ -50,104 +45,12 @@ export function Dashboard() {
   } = useMarkets({
     pagination: { page: 1, limit: 6 },
   });
+  const { stats, loading: statsLoading } = useStats();
 
   const isPolling = picksPolling || marketsPolling;
 
-  // Fallback: build demo picks from recent markets if no top picks yet
-  const displayPicks: TopPick[] =
-    topPicks && topPicks.length > 0
-      ? topPicks
-      : recentMarkets && recentMarkets.length > 0
-      ? recentMarkets.slice(0, 6).map(
-          (m) =>
-            ({
-              id: `demo-${m.id}`,
-              market_id: m.id,
-              recommendation: "buy" as const,
-              confidence_score: 72,
-              reasoning:
-                "Strong momentum and healthy liquidity support this direction.",
-              value_score: 68,
-              created_at: new Date(),
-              expires_at: undefined,
-              market: m,
-            } as TopPick)
-        )
-      : [
-          // Static demo data when no markets are available
-          {
-            id: "demo-1",
-            market_id: "demo-1",
-            recommendation: "buy" as const,
-            confidence_score: 85,
-            reasoning:
-              "High confidence based on recent market trends and volume analysis.",
-            value_score: 78,
-            created_at: new Date(),
-            expires_at: undefined,
-            market: {
-              id: "demo-1",
-              market_id: "demo-1",
-              platform: "polymarket" as const,
-              title: "Will Bitcoin reach $100k by end of 2024?",
-              description: "Bitcoin price prediction for end of year",
-              category: "crypto",
-              status: "open" as const,
-              volume_24h: 2500000,
-              liquidity: 1800000,
-              created_at: new Date(),
-              updated_at: new Date(),
-            },
-          },
-          {
-            id: "demo-2",
-            market_id: "demo-2",
-            recommendation: "sell" as const,
-            confidence_score: 72,
-            reasoning:
-              "Market sentiment suggests downward pressure in the short term.",
-            value_score: 65,
-            created_at: new Date(),
-            expires_at: undefined,
-            market: {
-              id: "demo-2",
-              market_id: "demo-2",
-              platform: "kalshi" as const,
-              title: "Will the Fed cut rates in Q1 2025?",
-              description: "Federal Reserve interest rate prediction",
-              category: "economics",
-              status: "open" as const,
-              volume_24h: 1800000,
-              liquidity: 1200000,
-              created_at: new Date(),
-              updated_at: new Date(),
-            },
-          },
-          {
-            id: "demo-3",
-            market_id: "demo-3",
-            recommendation: "buy" as const,
-            confidence_score: 68,
-            reasoning: "Technical indicators show bullish momentum building.",
-            value_score: 71,
-            created_at: new Date(),
-            expires_at: undefined,
-            market: {
-              id: "demo-3",
-              market_id: "demo-3",
-              platform: "manifold" as const,
-              title: "Will AI achieve AGI by 2030?",
-              description:
-                "Artificial General Intelligence timeline prediction",
-              category: "tech",
-              status: "open" as const,
-              volume_24h: 950000,
-              liquidity: 750000,
-              created_at: new Date(),
-              updated_at: new Date(),
-            },
-          },
-        ];
+  // Use real top picks
+  const displayPicks: TopPick[] = topPicks || [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -168,6 +71,13 @@ export function Dashboard() {
                 className="text-sm font-medium text-muted-foreground hover:text-foreground border-b-2 border-transparent hover:border-primary transition"
               >
                 Prediction Markets
+              </Link>
+              <Link
+                href="/for-you"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground border-b-2 border-transparent hover:border-primary transition flex items-center gap-1"
+              >
+                <Heart className="h-4 w-4" />
+                For You
               </Link>
               <Link
                 href="/sports"
@@ -216,9 +126,13 @@ export function Dashboard() {
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {mockStats.totalMarkets.toLocaleString()}
-              </div>
+              {statsLoading ? (
+                <Skeleton className="h-8 w-20" />
+              ) : (
+                <div className="text-2xl font-bold">
+                  {stats?.totalMarkets.toLocaleString() || 0}
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">
                 Active prediction markets
               </p>
@@ -231,9 +145,13 @@ export function Dashboard() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                ${(mockStats.totalVolume / 1000000).toFixed(1)}M
-              </div>
+              {statsLoading ? (
+                <Skeleton className="h-8 w-20" />
+              ) : (
+                <div className="text-2xl font-bold">
+                  ${stats ? (stats.totalVolume / 1000000).toFixed(1) : "0.0"}M
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">
                 Across all platforms
               </p>
@@ -246,7 +164,13 @@ export function Dashboard() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockStats.topMovers}</div>
+              {statsLoading ? (
+                <Skeleton className="h-8 w-20" />
+              ) : (
+                <div className="text-2xl font-bold">
+                  {stats?.topMovers || 0}
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">
                 Markets with &gt;10% movement
               </p>
@@ -261,7 +185,13 @@ export function Dashboard() {
               <Star className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockStats.activePicks}</div>
+              {statsLoading ? (
+                <Skeleton className="h-8 w-20" />
+              ) : (
+                <div className="text-2xl font-bold">
+                  {stats?.activePicks || 0}
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">
                 Curated recommendations
               </p>
@@ -273,18 +203,30 @@ export function Dashboard() {
         <div className="mb-6 lg:mb-8">
           <div className="flex items-center justify-between mb-4 lg:mb-6">
             <h2 className="text-2xl lg:text-3xl font-bold">Top Picks</h2>
-            <div className="hidden lg:flex items-center space-x-2">
-              <div className="flex items-center space-x-1">
-                {picksPolling ? (
-                  <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[var(--success)] live-pulse" />
-                ) : (
-                  <WifiOff className="h-4 w-4 text-gray-400" />
-                )}
-                <span className="text-sm text-muted-foreground">
-                  {picksPolling ? "Live" : "Paused"}
-                </span>
+            <div className="flex items-center space-x-2">
+              <div className="hidden lg:flex items-center space-x-2">
+                <div className="flex items-center space-x-1">
+                  {picksPolling ? (
+                    <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[var(--success)] live-pulse" />
+                  ) : (
+                    <WifiOff className="h-4 w-4 text-gray-400" />
+                  )}
+                  <span className="text-sm text-muted-foreground">
+                    {picksPolling ? "Live" : "Paused"}
+                  </span>
+                </div>
+                <Badge variant="secondary">Updated 2 minutes ago</Badge>
               </div>
-              <Badge variant="secondary">Updated 2 minutes ago</Badge>
+              <Link href="/for-you">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  <Heart className="h-4 w-4" />
+                  <span className="hidden sm:inline">For You</span>
+                </Button>
+              </Link>
             </div>
           </div>
 
@@ -375,7 +317,7 @@ export function Dashboard() {
                     <MarketCard
                       key={market.id}
                       market={market}
-                      outcomes={[]}
+                      outcomes={market.outcomes || []}
                       showDetails={false}
                     />
                   ))}
@@ -388,7 +330,7 @@ export function Dashboard() {
                   <MarketCard
                     key={market.id}
                     market={market}
-                    outcomes={[]}
+                    outcomes={market.outcomes || []}
                     showDetails={false}
                   />
                 ))}

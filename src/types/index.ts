@@ -24,6 +24,8 @@ export interface Market {
   liquidity: number;
   created_at: Date;
   updated_at: Date;
+  // Joined data
+  outcomes?: Outcome[];
 }
 
 export interface Outcome {

@@ -19,8 +19,33 @@ interface TopPickCardProps {
 export function TopPickCard({ pick }: TopPickCardProps) {
   const title = pick.market?.title || "Untitled Market";
   const platform = pick.market?.platform || "";
-  const pickLabel = "Yes/No"; // placeholder until analytics selects a side
+  const isYes = pick.recommendation === "buy";
+  const pickLabel = isYes
+    ? "Yes"
+    : pick.recommendation === "sell"
+    ? "No"
+    : "Watch";
   const confidence = Math.round(pick.confidence_score);
+
+  // Enhanced analytics data
+  const edgePercentage = (pick as any).edge_percentage || pick.value_score;
+  const probabilityPercentage =
+    (pick as any).probability_percentage || pick.confidence_score;
+  const confidenceLevel =
+    (pick as any).confidence_level ||
+    (confidence >= 70 ? "HIGH" : confidence >= 55 ? "MED" : "LOW");
+  const freshnessMinutes = (pick as any).freshness_minutes || 0;
+
+  // Get current prices from market outcomes
+  const outcomes = (pick.market as any)?.outcomes || [];
+  const yesOutcome = outcomes.find(
+    (o: any) => o.outcome_label?.toLowerCase() === "yes"
+  );
+  const noOutcome = outcomes.find(
+    (o: any) => o.outcome_label?.toLowerCase() === "no"
+  );
+  const yesPrice = yesOutcome?.current_price || 0;
+  const noPrice = noOutcome?.current_price || 0;
 
   return (
     <Link
@@ -36,7 +61,21 @@ export function TopPickCard({ pick }: TopPickCardProps) {
                 <Badge variant="outline" className="uppercase text-xs">
                   {platform}
                 </Badge>
-                <Badge variant="outline">{pickLabel}</Badge>
+                <Badge
+                  variant="outline"
+                  className={
+                    confidenceLevel === "HIGH"
+                      ? "bg-green-500/20 text-green-400 border-green-500/30"
+                      : confidenceLevel === "MED"
+                      ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
+                      : "bg-red-500/20 text-red-400 border-red-500/30"
+                  }
+                >
+                  {pickLabel}
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  {confidenceLevel}
+                </Badge>
               </CardDescription>
             </div>
             <div className="flex flex-col items-end">
@@ -58,12 +97,76 @@ export function TopPickCard({ pick }: TopPickCardProps) {
               {pick.reasoning}
             </p>
           )}
-          <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Star className="h-3 w-3 text-primary" />
-              <span>Value {pick.value_score}/100</span>
+
+          {/* Current Prices Display */}
+          {(yesPrice > 0 || noPrice > 0) && (
+            <div className="mt-3 p-3 bg-muted/30 rounded-lg">
+              <div className="text-xs font-medium text-muted-foreground mb-2">
+                Current Prices
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    <span className="text-sm font-medium">
+                      Yes: {yesPrice.toFixed(4)} ({(yesPrice * 100).toFixed(1)}
+                      %)
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                    <span className="text-sm font-medium">
+                      No: {noPrice.toFixed(4)} ({(noPrice * 100).toFixed(1)}%)
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <span>Tap for details →</span>
+          )}
+
+          <div className="mt-3 space-y-2">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1">
+                  <Star className="h-3 w-3 text-primary" />
+                  <span>Edge {edgePercentage}%</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-blue-400" />
+                  <span>P(win) {probabilityPercentage}%</span>
+                </div>
+              </div>
+              <span className="text-xs">
+                {freshnessMinutes < 60
+                  ? `${freshnessMinutes}m ago`
+                  : `${Math.floor(freshnessMinutes / 60)}h ago`}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Tap for details →</span>
+              {pick.market && (
+                <span
+                  className="text-primary hover:underline cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.open(
+                      `https://${
+                        platform === "polymarket"
+                          ? "polymarket.com"
+                          : platform === "kalshi"
+                          ? "kalshi.com"
+                          : "manifold.markets"
+                      }`,
+                      "_blank",
+                      "noopener,noreferrer"
+                    );
+                  }}
+                >
+                  View on {platform} →
+                </span>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 50);
     const category = searchParams.get('category') || '';
     const platform = searchParams.get('platform') || '';
+    const sortBy = searchParams.get('sortBy') || 'value'; // value, probability, trending, confidence
 
     // Build query
     let query = supabase
@@ -19,8 +20,27 @@ export async function GET(request: NextRequest) {
         market:markets (*, outcomes (*))
       `)
       .gte('expires_at', new Date().toISOString())
-      .order('value_score', { ascending: false })
       .limit(limit);
+
+    // Apply sorting
+    switch (sortBy) {
+      case 'value':
+        query = query.order('value_score', { ascending: false });
+        break;
+      case 'probability':
+        query = query.order('confidence_score', { ascending: false });
+        break;
+      case 'trending':
+        // Sort by creation time (most recent first)
+        query = query.order('created_at', { ascending: false });
+        break;
+      case 'confidence':
+        // Sort by confidence score
+        query = query.order('confidence_score', { ascending: false });
+        break;
+      default:
+        query = query.order('value_score', { ascending: false });
+    }
 
     // Apply filters
     if (category) {
@@ -55,9 +75,27 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Add computed fields for UI
+    const enrichedData = (picks || []).map(pick => ({
+      ...pick,
+      // Add edge percentage for display
+      edge_percentage: pick.value_score,
+      // Add probability percentage
+      probability_percentage: pick.confidence_score,
+      // Add confidence level
+      confidence_level: pick.confidence_score >= 70 ? 'HIGH' : pick.confidence_score >= 55 ? 'MED' : 'LOW',
+      // Add freshness (time since creation)
+      freshness_minutes: Math.floor((Date.now() - new Date(pick.created_at).getTime()) / (1000 * 60)),
+    }));
+
     const payload = {
       success: true,
-      data: picks || [],
+      data: enrichedData,
+      meta: {
+        sortBy,
+        total: enrichedData.length,
+        filters: { platform, category },
+      }
     };
 
     apiCache.set(cacheKey, payload, 15_000);
