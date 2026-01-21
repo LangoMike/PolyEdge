@@ -67,11 +67,11 @@ function normalizeStatus(platformStatus: string): MarketStatus {
 }
 
 // Extract category from title or description
-function extractCategory(title: string, description?: string, platform: Platform): string {
+function extractCategory(title: string, platform: Platform, description?: string): string {
   const text = `${title} ${description || ''}`.toLowerCase();
   
   // Platform-specific category extraction
-  if (platform === 'polymarket' || platform === 'manifold') {
+  if (platform === 'polymarket' || platform === 'manifold' || platform === 'kalshi') {
     if (text.includes('election') || text.includes('president') || text.includes('trump') || text.includes('biden')) {
       return 'politics';
     }
@@ -88,19 +88,6 @@ function extractCategory(title: string, description?: string, platform: Platform
       return 'weather';
     }
     return 'culture';
-  }
-  
-  if (platform === 'kalshi') {
-    if (text.includes('election') || text.includes('president')) {
-      return 'politics';
-    }
-    if (text.includes('recession') || text.includes('inflation') || text.includes('fed')) {
-      return 'economics';
-    }
-    if (text.includes('nba') || text.includes('nfl') || text.includes('sports')) {
-      return 'sports';
-    }
-    return 'weather';
   }
   
   if (platform === 'prophetx' || platform === 'novig') {
@@ -127,8 +114,8 @@ function calculateLiquidityScore(polyMarket: PolyRouterMarket): number {
   const prices = Object.values(polyMarket.current_prices || {}).map((p: any) => p.price || 0);
   const priceSpread = prices.length > 1 ? Math.max(...prices) - Math.min(...prices) : 0;
   
-  // Volume score (0-1, max at $10k volume)
-  const volumeScore = Math.min(volume / 10000, 1);
+  // Volume score (0-1, max at $100k volume)
+  const volumeScore = Math.min(volume / 100000, 1);
   
   // Spread score (0-1, penalize high spreads)
   const spreadScore = Math.max(0, 1 - priceSpread * 10);
@@ -147,7 +134,7 @@ export function normalizeMarket(polyMarket: PolyRouterMarket): Market {
     platform,
     title: polyMarket.title,
     description: '', // PolyRouter doesn't provide description in basic response
-    category: extractCategory(polyMarket.title, undefined, platform),
+    category: extractCategory(polyMarket.title, platform, undefined),
     status: normalizeStatus(polyMarket.status),
     end_date: undefined, // Would need to fetch from market details
     volume_24h: polyMarket.volume_24h || 0,

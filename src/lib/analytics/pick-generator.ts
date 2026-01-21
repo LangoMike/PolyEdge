@@ -168,9 +168,9 @@ export class PickGenerator {
     }
     
     // Market activity
-    if (features.volume_24h_log > 8) {
+    if (features.volume_24h_log > 10) {
       reasons.push('High trading volume indicates active market');
-    } else if (features.volume_24h_log > 6) {
+    } else if (features.volume_24h_log > 5) {
       reasons.push('Moderate trading volume');
     } else {
       reasons.push('Low trading volume may indicate limited interest');
@@ -215,7 +215,7 @@ export class PickGenerator {
     console.log('Training model with synthetic labels based on current prices...');
     
     // Initialize models with basic weights using synthetic data
-    // This is a simplified approach - real training needs resolved markets
+    // This is a simplified approach - real training will need resolved markets
     
     const binaryModel = this.models.get('binary');
     if (binaryModel) {

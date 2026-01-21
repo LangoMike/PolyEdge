@@ -1,20 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PolyRouterClient } from '@/lib/api/polyrouter-client';
 import { supabaseAdmin } from '@/lib/supabase';
-import { normalizePriceHistory } from '@/lib/data/normalizer';
 
+/**
+ * Autonomous price history collection job
+ * Runs every 5 minutes to capture current market prices
+ */
 export async function GET(request: NextRequest) {
   try {
-    console.log('Starting price history sync...');
+    console.log('[Price History Sync] Starting autonomous collection...');
     
-    const polyRouterClient = new PolyRouterClient(process.env.POLYROUTER_API_KEY || '');
-    
-    // Get active markets from database
+    // Get active markets with outcomes
     const { data: markets, error: marketsError } = await supabaseAdmin
       .from('markets')
-      .select('id, market_id, platform')
-      .eq('status', 'open')
-      .limit(50); // Process in batches
+      .select(`
+        id,
+        market_id,
+        platform,
+        outcomes (
+          outcome_label,
+          current_price,
+          previous_price
+        )
+      `)
+      .eq('status', 'open');
 
     if (marketsError) {
       throw new Error(`Failed to fetch markets: ${marketsError.message}`);
@@ -29,69 +37,39 @@ export async function GET(request: NextRequest) {
     }
 
     let totalPricePoints = 0;
+    const now = new Date();
+    const timestamp = now.toISOString();
     const results = [];
 
-    // Process markets in batches to avoid rate limits
+    // Process markets in batches
     for (const market of markets) {
       try {
-        console.log(`Syncing price history for market ${market.market_id}...`);
+        const outcomes = market.outcomes as any[];
         
-        // Get current outcomes for this market
-        const { data: outcomes, error: outcomesError } = await supabaseAdmin
-          .from('outcomes')
-          .select('outcome_label')
-          .eq('market_id', market.id);
-
-        if (outcomesError || !outcomes || outcomes.length === 0) {
-          console.log(`No outcomes found for market ${market.market_id}`);
+        if (!outcomes || outcomes.length === 0) {
           continue;
         }
 
-        // Fetch price history for each outcome
+        // Create price snapshot for current timestamp (5-minute intervals)
         for (const outcome of outcomes) {
-          try {
-            const priceHistory = await polyRouterClient.getPriceHistory(
-              [market.market_id],
-              '1h',
-              24 // Last 24 hours
-            );
+          const { error: insertError } = await supabaseAdmin
+            .from('price_history')
+            .upsert({
+              market_id: market.id,
+              outcome_label: outcome.outcome_label,
+              price: outcome.current_price,
+              timestamp: timestamp,
+              interval: '5m', // 5-minute interval
+              volume: 0, // Volume tracked separately
+            }, {
+              onConflict: 'market_id,outcome_label,timestamp,interval',
+              ignoreDuplicates: false
+            });
 
-            if (priceHistory.data && priceHistory.data.length > 0) {
-              // Normalize price history data
-              const normalizedHistory = normalizePriceHistory(
-                priceHistory.data,
-                market.id,
-                outcome.outcome_label,
-                '1h'
-              );
-
-              // Insert price history (upsert to avoid duplicates)
-              for (const pricePoint of normalizedHistory) {
-                const { error: insertError } = await supabaseAdmin
-                  .from('price_history')
-                  .upsert({
-                    market_id: market.id,
-                    outcome_label: pricePoint.outcome_label,
-                    price: pricePoint.price,
-                    timestamp: pricePoint.timestamp.toISOString(),
-                    interval: pricePoint.interval,
-                    volume: pricePoint.volume,
-                  }, {
-                    onConflict: 'market_id,outcome_label,timestamp,interval'
-                  });
-
-                if (insertError) {
-                  console.error(`Error inserting price history:`, insertError);
-                } else {
-                  totalPricePoints++;
-                }
-              }
-            }
-
-            // Small delay to respect rate limits
-            await new Promise(resolve => setTimeout(resolve, 100));
-          } catch (outcomeError) {
-            console.error(`Error syncing price history for outcome ${outcome.outcome_label}:`, outcomeError);
+          if (insertError) {
+            console.error(`Error inserting price history for market ${market.market_id}:`, insertError);
+          } else {
+            totalPricePoints++;
           }
         }
 
@@ -100,9 +78,6 @@ export async function GET(request: NextRequest) {
           outcomes: outcomes.length,
           status: 'success'
         });
-
-        // Delay between markets to respect rate limits
-        await new Promise(resolve => setTimeout(resolve, 200));
       } catch (marketError) {
         console.error(`Error processing market ${market.market_id}:`, marketError);
         results.push({
@@ -113,17 +88,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Clean up old price history data (keep last 30 days)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // Clean up old price history data (keep last 90 days for training)
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
     const { error: cleanupError } = await supabaseAdmin
       .from('price_history')
       .delete()
-      .lt('timestamp', thirtyDaysAgo.toISOString());
+      .lt('timestamp', ninetyDaysAgo.toISOString());
 
     if (cleanupError) {
       console.error('Error cleaning up old price history:', cleanupError);
+    } else {
+      console.log(`[Price History Sync] Cleaned up data older than 90 days`);
     }
 
     console.log('Price history sync completed:', {

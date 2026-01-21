@@ -26,9 +26,10 @@ AI‑driven prediction market analytics platform that unifies data from multiple
 
 - **Data Pipeline & APIs**
   - Cron routes for automated data ingestion:
-    - `/api/cron/sync-markets` (open markets; multi‑platform)
-    - `/api/cron/sync-price-history`
-    - `/api/cron/generate-top-picks`
+    - `/api/cron/sync-markets` (open markets; multi‑platform) - every 10 minutes
+    - `/api/cron/sync-price-history` - every 5 minutes (autonomous historical data collection)
+    - `/api/cron/generate-top-picks` - every 15 minutes
+    - `/api/cron/monitor-market-status` - every hour (auto-close markets based on resolution time)
   - Public API routes with caching:
     - `/api/markets` (includes outcomes)
     - `/api/markets/[id]` (detail + outcomes)
@@ -37,6 +38,8 @@ AI‑driven prediction market analytics platform that unifies data from multiple
   - Model training endpoints:
     - `/api/train-model` (train analytics model)
     - `/api/setup/training-data` (seed synthetic data)
+  - Monitoring endpoints:
+    - `/api/monitoring/data-collection` (data collection health and statistics)
 
 - **Analytics & AI**
   - Advanced analytics utilities (`src/lib/analytics/*`) with comprehensive metrics
@@ -97,9 +100,10 @@ AI‑driven prediction market analytics platform that unifies data from multiple
   - Cron: `/api/cron/sync-markets`, `/api/cron/sync-price-history`, `/api/cron/generate-top-picks`
 
 ### Next Steps
-- Implement analytics side‑selection (choose Yes/No vs Watch) using computed signals
-- Integrate LLM reasoning post‑selection and display on cards
-- Backtest/tune weights and confidence mapping
+- Collect 7-30 days of historical data for model training
+- Train calibrated ML model on resolved markets with known outcomes
+- Implement market resolution tracking and automatic status updates
+- Build model evaluation pipeline (Brier Score, LogLoss, CLV)
 - Sports module data pipeline and NBA prediction model
 
 ### Local Development
@@ -119,6 +123,40 @@ OPENAI_API_KEY=...    # optional (for LLM explanations)
 
 ### Deployment
 - Vercel (Next.js app). `vercel.json` configures cron jobs.
+
+### Autonomous Data Collection System
+
+PolyEdge implements a fully autonomous historical data collection system:
+
+**Price History Collection** (Every 5 minutes)
+- Captures current prices from all open markets
+- Creates timestamped snapshots at 5-minute intervals
+- Stores data for 90 days for model training
+- Automatically prevents duplicate entries
+- Zero API overhead (reads from database, not external API)
+
+**Market Status Monitoring** (Every hour)
+- Automatically detects when markets reach their resolution time
+- Updates market status from 'open' to 'closed'
+- Tracks market lifecycle for analytics
+
+**Data Retention**
+- Keeps 90 days of price history for training data
+- Automatically purges older data to manage storage
+- Ensures sufficient historical data for ML model training
+
+**Monitoring Dashboard**
+- API endpoint: `/api/monitoring/data-collection`
+- Tracks total markets, price history entries, data collection rate
+- Monitors data completeness and health status
+- Provides oldest/newest entry timestamps
+
+**Benefits**
+- No manual intervention required
+- Consistent data collection cadence
+- Historical data ready for model training
+- Automatic market lifecycle management
+- Cost-effective (no external API calls for history)
 
 ### Changelog
 - See `CHANGELOG.md` for a chronological list of updates.

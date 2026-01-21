@@ -2,15 +2,19 @@
   "crons": [
     {
       "path": "/api/cron/sync-markets",
-      "schedule": "*/10 * * * *" 
+      "schedule": "*/10 * * * *"
     },
     {
       "path": "/api/cron/sync-price-history",
-      "schedule": "*/5 * * * *" 
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/generate-top-picks",
-      "schedule": "*/15 * * * *" 
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/monitor-market-status",
+      "schedule": "0 * * * *"
     }
   ]
 }

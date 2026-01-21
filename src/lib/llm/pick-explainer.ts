@@ -16,7 +16,7 @@ export async function generatePickExplanation(
 ) {
 	const { model } = getProvider(opts?.provider);
 	const system =
-		"You are a prediction market analyst. Write a concise, data-driven 2-3 sentence explanation for why this market is a Top Pick. Avoid hype. Focus on probability, movement, liquidity, divergence, and actionable insight.";
+		"You are a prediction market analyst. Write a concise, data-driven 2-3 sentence explanation for why this market is a Top Pick, as well as which side has the most probability. Avoid hype. Focus on probability, movement, liquidity, divergence, and actionable insight.";
 	const user = `Market: ${input.marketTitle}
 Platform: ${input.platform}
 Current Probability: ${input.currentProbabilityPct.toFixed(1)}%
@@ -28,7 +28,6 @@ Signals: ${input.valueSignals.filter(Boolean).join("; ")}`;
 		model,
 		system,
 		prompt: user,
-		maxTokens: opts?.maxTokens ?? 160,
 		maxRetries: 0,
 		temperature: 0.4,
 	});

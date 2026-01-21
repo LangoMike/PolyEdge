@@ -43,13 +43,13 @@ export function Dashboard() {
     loading: marketsLoading,
     isPolling: marketsPolling,
   } = useMarkets({
-    pagination: { page: 1, limit: 6 },
+    pagination: { page: 2, limit: 12},
   });
   const { stats, loading: statsLoading } = useStats();
 
   const isPolling = picksPolling || marketsPolling;
 
-  // Use real top picks
+  // Use top picks
   const displayPicks: TopPick[] = topPicks || [];
 
   return (
